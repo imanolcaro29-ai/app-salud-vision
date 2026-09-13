@@ -1,0 +1,10 @@
+import {mkdirSync,readFileSync,writeFileSync,existsSync} from 'node:fs';
+import {randomBytes} from 'node:crypto';
+import {createApp} from '../server/app.js';
+mkdirSync('./data',{recursive:true,mode:0o700});
+const keyPath='./data/demo.key';
+if(!existsSync(keyPath))writeFileSync(keyPath,randomBytes(32).toString('hex'),{mode:0o600});
+const port=Number(process.env.PORT||3000),origin=`http://localhost:${port}`;
+const app=createApp({demo:true,dbPath:'./data/demo.sqlite',key:readFileSync(keyPath,'utf8').trim(),origin});
+app.server.listen(port,'127.0.0.1',()=>console.log(`Abrí ${origin} — DEMO local con datos ficticios. Ctrl+C para cerrar.`));
+const stop=()=>app.close().then(()=>process.exit(0));process.on('SIGINT',stop);process.on('SIGTERM',stop);
