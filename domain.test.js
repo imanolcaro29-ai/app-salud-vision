@@ -1,0 +1,18 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {classify,ageMonths,validDate,validateScreen,validateStudent,csvCell,today} from '../shared/domain.js';
+const screen={date:'2026-09-12',od:20,oi:20,binocular:null,unable:false,conditions:true,symptoms:[],alerts:[],distance:3,chart:'Sloan',correction:'no usa anteojos',notes:''};
+test('Edades exactas en cumpleaños y años bisiestos',()=>{assert.equal(ageMonths('2022-09-13','2026-09-12'),47);assert.equal(ageMonths('2022-09-12','2026-09-12'),48);assert.equal(validDate('2026-02-29'),false);assert.equal(validDate('2024-02-29'),true);});
+test('Fecha clínica respeta Argentina aunque UTC ya sea el día siguiente',()=>{assert.equal(today(new Date('2026-09-13T01:30:00Z')),'2026-09-12');assert.equal(today(new Date('2026-09-13T03:00:00Z')),'2026-09-13');});
+for(const [age,dob,threshold] of [['3 años','2023-09-12',50],['4 años','2022-09-12',40],['5 años','2021-09-12',32]])test(`Umbral ${age}: aprobado y no aprobado`,()=>{assert.equal(classify({...screen,od:threshold,oi:threshold},dob).status,'green');assert.equal(classify({...screen,od:threshold+1,oi:threshold+1},dob).status,'gray');assert.equal(classify({...screen,od:63,oi:63},dob).status,'yellow');});
+test('Un ojo alterado no se oculta por el otro',()=>{assert.equal(classify({...screen,od:20,oi:50},'2017-01-01').status,'yellow');});
+test('Asimetría con umbrales superados',()=>{assert.match(classify({...screen,od:20,oi:32},'2017-01-01').reason,/Diferencia/);});
+test('Síntomas derivan aunque cumpla el umbral',()=>{assert.equal(classify({...screen,symptoms:['board']},'2017-01-01').status,'yellow');});
+test('Alarma tiene prioridad sobre prueba incompleta',()=>{assert.equal(classify({...screen,unable:true,alerts:['sudden']},'2017-01-01').status,'red');});
+test('Condiciones inválidas y no evaluable nunca producen verde',()=>{assert.equal(classify({...screen,conditions:false},'2017-01-01').status,'gray');assert.equal(classify({...screen,unable:true},'2017-01-01').status,'gray');});
+test('Edades fuera del alcance no producen verde',()=>{assert.equal(classify(screen,'2024-09-13').status,'gray');assert.equal(classify(screen,'2008-09-12').status,'gray');});
+test('Binocular no se infiere ni cambia la clasificación monocular',()=>{assert.equal(classify({...screen,od:50,binocular:20},'2017-01-01').status,'yellow');});
+test('Validación de alarma exige comunicación',()=>{assert(validateScreen({...screen,alerts:['pain']}).some(x=>x.includes('comunicó')));});
+test('Resultados y fechas inválidos se rechazan',()=>{assert(validateScreen({...screen,od:-1}).length);assert(validateScreen({...screen,date:'2999-01-01'}).length);assert(validateScreen({...screen,unable:true}).some(x=>x.includes('por qué')));});
+test('Autorización exige una referencia válida',()=>{assert(validateStudent({name:'Persona Demo',dob:'2017-01-01',schoolId:'s',grade:'3A',guardian:'Adulto Demo',contact:'000000000',consent:true}).some(x=>x.includes('autorización')));});
+test('CSV impide interpretación de fórmulas',()=>{assert.equal(csvCell('=HYPERLINK("x")'),'"\'=HYPERLINK(""x"")"');assert.equal(csvCell('Escuela; "A"'),'"Escuela; ""A"""');});
