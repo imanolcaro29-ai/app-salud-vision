@@ -1,3 +1,11 @@
+# Corrección 1.2.1 — configurador independiente
+
+Se integró la lógica en ABRIR_CONFIGURADOR.html para que no dependa de scripts/config-values.js al abrirse como archivo local. Se ejecutaron las cuatro pruebas del configurador: codificación de contraseña, conservación del secreto, validación de entradas y ejecución de todos los scripts del HTML con envío del formulario en un DOM simulado. La última comprueba la generación de los seis valores y la conservación del secreto tras un segundo envío. Las cuatro aprobaron. También pasó la revisión sintáctica de los 30 archivos JavaScript y scripts del HTML. No se efectuó una nueva prueba visual en un navegador Windows.
+
+La suite completa de 74 pruebas de la versión 1.2.0 se conserva como antecedente debajo.
+
+---
+
 # Verificación 1.2.0 — ecosistema VinTracker
 
 **74 pruebas aprobadas; 0 fallidas, canceladas u omitidas.** Sintaxis válida en 30 archivos JavaScript y el configurador HTML. Ejecutado el 13 de septiembre de 2026 con Node 24.19.0.

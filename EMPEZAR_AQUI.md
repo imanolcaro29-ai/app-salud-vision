@@ -1,4 +1,4 @@
-# App Salud Visión + VinTracker — instalación 1.2.0
+# App Salud Visión + VinTracker — instalación 1.2.1
 
 Este ZIP contiene **App Salud Visión / Haciendo la Vista Gorda**, preparada para usar GitHub, Vercel y **el mismo proyecto de Supabase que VinTracker y VinTracker Aventura**. Conserva la paleta y Lupi, añade el menú «Aplicaciones VinTracker» y usa PostgreSQL para guardar registros.
 
@@ -110,7 +110,7 @@ Para volver desde VinTracker o Aventura, usá sus pestañas. Agregar dentro de e
 
 ## 7. Comprobación después de publicar
 
-1. Abrí `https://TU-DOMINIO/api/health`: debe devolver `{"ok":true,"version":"1.2.0"}`. Comprueba también conexión con la base.
+1. Abrí `https://TU-DOMINIO/api/health`: debe devolver `{"ok":true,"version":"1.2.1"}`. Comprueba también conexión con la base.
 2. Abrí `https://TU-DOMINIO/shared/domain.js`: debe mostrar JavaScript, sin 404.
 3. Ingresá, creá una escuela ficticia y cerrá la sesión. Volvé a ingresar y comprobá que siga allí.
 4. Abrí **Aplicaciones VinTracker** y verificá cada destino.

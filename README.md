@@ -1,6 +1,6 @@
 # Haciendo la Vista Gorda
 
-**Salud visual escolar · versión 1.2.0**
+**Salud visual escolar · versión 1.2.1**
 
 Aplicación completa para registrar alumnos, guiar el registro de tamizajes con cartilla estandarizada, documentar consultas profesionales, gestionar anteojos y acompañar el seguimiento.
 
@@ -16,7 +16,7 @@ Usa el mismo proyecto Supabase que VinTracker y VinTracker Aventura, con sus reg
 
 Seguí [EMPEZAR_AQUI.md](EMPEZAR_AQUI.md). Incluye `vercel.json`, la función `api/index.js`, el esquema PostgreSQL de Supabase y **ABRIR_CONFIGURADOR.html**, un asistente local para preparar las variables sin escribir código ni compartir contraseñas.
 
-La versión 1.2.0 conserva la demostración local con SQLite y utiliza PostgreSQL para el despliegue en Vercel. Supabase almacena los registros y Vercel ejecuta el servidor. No requiere Render para esta modalidad.
+La versión 1.2.1 conserva la demostración local con SQLite y utiliza PostgreSQL para el despliegue en Vercel. Supabase almacena los registros y Vercel ejecuta el servidor. No requiere Render para esta modalidad.
 
 ## Probar la app en tu computadora
 

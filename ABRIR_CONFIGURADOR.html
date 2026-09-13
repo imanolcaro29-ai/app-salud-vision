@@ -1,8 +1,31 @@
 <!doctype html><html lang="es-AR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'"><title>Preparar Vercel y Supabase · Salud visual</title><style>
 *{box-sizing:border-box}body{margin:0;background:#fff7e9;color:#412d24;font:16px/1.5 system-ui,sans-serif}main{max-width:840px;margin:32px auto;padding:24px}h1{font-size:32px;line-height:1.15}h2{font-size:22px}.eyebrow{letter-spacing:.13em;text-transform:uppercase;font-size:12px;font-weight:700}section{background:white;border:1px solid #e8dac8;border-radius:16px;padding:24px;margin:20px 0}label{display:block;font-weight:600;margin-top:16px}input,textarea,button{font:inherit}input,textarea{display:block;width:100%;border:1px solid #bfae9f;background:#fffdfa;color:#412d24;border-radius:7px;padding:12px;margin-top:6px}textarea{resize:vertical}button{border:0;background:#412d24;color:white;border-radius:8px;padding:12px 18px;cursor:pointer;margin-top:12px}button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #4995a7;outline-offset:3px}.hint{font-size:14px;color:#63534a}.banner{background:#ddecf0;border-radius:12px;padding:16px}.error{color:#a32116;font-weight:600}.row{padding:12px 0;border-bottom:1px solid #e8dac8}.row strong{overflow-wrap:anywhere}small{display:block;margin-top:6px}[hidden]{display:none}@media(max-width:500px){main{padding:16px;margin:0}section{padding:16px}h1{font-size:27px}}
-</style><script src="scripts/config-values.js"></script></head><body><main>
-<p class="eyebrow">Haciendo la Vista Gorda · Instalación 1.2.0</p><h1>De Supabase a Vercel,<br>sin escribir código.</h1>
-<p>Este asistente prepara los seis valores que vas a copiar en Vercel. Abrilo después de extraer el ZIP completo.</p>
+</style><script>
+// Compartido por el configurador local y sus pruebas. No realiza solicitudes de red.
+(function(scope){
+  function values({connection,password,name,email,adminPassword,secret},random=()=>{
+    return Array.from(scope.crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
+  }){
+    const text=String(connection||'').trim();
+    if(!text)throw Error('Pegá la conexión de Supabase: Connect → Transaction pooler.');
+    if(text.includes('[YOUR-PASSWORD]')&&!password)throw Error('Completá la contraseña de la base de Supabase.');
+    let url;try{url=new URL(text.replace('[YOUR-PASSWORD]','pendiente'));}catch{throw Error('La conexión debe empezar con postgresql://. Copiala desde Connect.');}
+    if(!['postgres:','postgresql:'].includes(url.protocol)||!url.hostname||!url.username||url.port!=='6543')throw Error('Elegí Transaction pooler, con puerto 6543, en Supabase.');
+    if(password)url.password=encodeURIComponent(password);
+    if(!url.password)throw Error('Falta la contraseña de la base.');
+    try{decodeURIComponent(url.password);}catch{throw Error('La contraseña de la URL no está bien codificada. Pegala en el campo Contraseña de la base.');}
+    name=String(name||'').trim();email=String(email||'').trim().toLowerCase();
+    if(name.length<3||name.length>100||!/^\S+@\S+\.\S+$/.test(email)||email.length>150)throw Error('Completá tu nombre y correo de acceso.');
+    if(typeof adminPassword!=='string'||adminPassword.length<12||adminPassword.length>128)throw Error('Tu contraseña para la app debe tener entre 12 y 128 caracteres.');
+    if(secret&&secret.length<32)throw Error('Conservá el DATA_SECRET completo, de al menos 32 caracteres.');
+    return {DATABASE_URL:url.href,DATA_SECRET:secret||random(),BOOTSTRAP_ADMIN_NAME:name,BOOTSTRAP_ADMIN_EMAIL:email,BOOTSTRAP_ADMIN_PASSWORD:adminPassword,CLINICAL_ENABLED:'false'};
+  }
+  scope.HVConfiguration={values};
+})(globalThis);
+
+</script></head><body><main>
+<p class="eyebrow">Haciendo la Vista Gorda · Instalación 1.2.1</p><h1>De Supabase a Vercel,<br>sin escribir código.</h1>
+<p>Este asistente prepara los seis valores que vas a copiar en Vercel. Este archivo contiene todo lo necesario para preparar los valores.</p>
 <p class="banner">Los valores se preparan en tu equipo. Esta página no se conecta a internet ni guarda contraseñas. Copialos sólo en los campos de configuración de Vercel.</p>
 <section><h2>1. Completá la conexión y tu cuenta</h2>
 <form id="config-form" autocomplete="off">
