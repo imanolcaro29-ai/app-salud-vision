@@ -57,7 +57,7 @@ test('Publicación: todos los módulos de navegador existen en public y se sirve
   await new Promise(r=>app.server.listen(0,'127.0.0.1',r));const base='http://127.0.0.1:'+app.server.address().port;
   try {
     const index=await (await fetch(base+'/')).text();assert(index.includes('src="/boot.js"'));
-    for(const path of ['/boot.js','/startup.js','/app.js','/shared/domain.js']) {
+    for(const path of ['/boot.js','/startup.js','/app.js','/shared/domain.js','/shared/preferences.js','/resources.js']) {
       const r=await fetch(base+path);assert.equal(r.status,200,path);assert.match(r.headers.get('content-type'),/javascript/);
       assert.equal(await r.text(),readFileSync(new URL('../public'+path,import.meta.url),'utf8'));
     }

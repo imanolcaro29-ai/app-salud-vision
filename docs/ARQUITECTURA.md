@@ -73,7 +73,7 @@ Los asientos no se editan ni borran desde la interfaz. La aclaración o rectific
 | Ruta | Uso |
 | --- | --- |
 | `GET /health` | Estado del servidor, sin datos personales |
-| `GET /api/config` | Modo y protocolo |
+| `GET /api/config` | Modo, protocolo, apariencia y estado público de habilitación |
 | `POST /api/login`, `POST /api/logout` | Sesión |
 | `POST /api/demo` | Sólo entorno demo, sin acceso en producción |
 | `GET /api/me`, `POST /api/password` | Cuenta actual y cambio de contraseña |
@@ -81,7 +81,11 @@ Los asientos no se editan ni borran desde la interfaz. La aclaración o rectific
 | `POST /api/students` | Alta escolar |
 | `GET /api/students/:id`, `PUT /api/students/:id` | Lectura / cambio de datos escolares |
 | `POST /api/students/:id/events` | Asiento tipado, validado y atribuido |
-| `GET /api/export` | CSV de totales por escuela |
+| `GET /api/export.xlsx` | Libro Excel de indicadores con tres hojas |
+| `GET /api/export` | CSV anterior conservado por compatibilidad |
+| `GET /api/settings`, `PUT /api/settings` | Configuración, exclusiva de administración, con control de revisión |
+| `PUT /api/profile` | Nombre y correo propios, confirmados por contraseña |
+| `DELETE /api/users/:id` | Baja lógica de otra cuenta, conserva autoría |
 | `GET /api/admin` | Cuentas, escuelas y auditoría |
 | `POST /api/schools`, `POST /api/users`, `PATCH /api/users/:id` | Administración |
 
@@ -95,3 +99,13 @@ Una instancia y disco persistente. No es compatible con funciones sin disco perm
 ## Publicación 1.0.1
 
 El módulo clínico canónico se publica en `public/shared/domain.js`. `shared/domain.js` lo reexporta para conservar los imports del servidor y las pruebas. `public/boot.js` maneja la carga dinámica del módulo principal mediante `startup.js`. `server/runtime.js` valida configuración, deriva la clave de `DATA_SECRET` cuando corresponde y crea el primer administrador de forma idempotente. Render ejecuta un proceso Node con disco persistente; no se utiliza almacenamiento temporal de funciones serverless.
+
+## Incorporaciones 1.3
+
+`server/preferences.js` guarda `app_preferences` cifrado en `meta`. El servidor valida los campos permitidos; la interfaz escapa los textos, sin aceptar HTML ni CSS personalizado. Las paletas, el espaciado y los símbolos de marca provienen de opciones cerradas.
+
+Las mutaciones de administración usan transacciones y un bloqueo asesor en PostgreSQL; se revalida que el actor siga activo dentro del bloqueo. Las bajas crean una marca `deleted_user:ID` en `meta`, desactivan la cuenta y revocan sus sesiones. Las referencias de los registros anteriores se conservan.
+
+El tutorial se adapta a las páginas de cada rol; no crea datos clínicos. Sólo guarda en este navegador que se mostró, asociado al ID de la cuenta. Puede repetirse desde Recursos. La lectura en voz alta es opcional y depende de las voces del navegador.
+
+ExcelJS genera el libro en el servidor; sólo exporta agregados autorizados. La cobertura y los totales son fórmulas nativas con resultados iniciales calculados. Las definiciones se incluyen en Guía. No se agregó ninguna tabla ni columna: se reutiliza `meta` y se conserva el esquema `hv`.

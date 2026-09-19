@@ -1,6 +1,8 @@
-# App Salud Visión + VinTracker — instalación 1.2.1
+# App Salud Visión — instalación 1.3.0
 
-Este ZIP contiene **App Salud Visión / Haciendo la Vista Gorda**, preparada para usar GitHub, Vercel y **el mismo proyecto de Supabase que VinTracker y VinTracker Aventura**. Conserva la paleta y Lupi, añade el menú «Aplicaciones VinTracker» y usa PostgreSQL para guardar registros.
+Este ZIP contiene **App Salud Visión / Haciendo la Vista Gorda**, preparada para usar GitHub, Vercel y **el mismo proyecto de Supabase que VinTracker y VinTracker Aventura**. Conserva la paleta y Lupi, tiene navegación propia y usa PostgreSQL para guardar registros.
+
+**Si la app ya funciona, seguí [ACTUALIZAR_1.3.md](ACTUALIZAR_1.3.md). No repitas la instalación ni la generación de claves.**
 
 ## Qué se comparte
 
@@ -9,7 +11,7 @@ Este ZIP contiene **App Salud Visión / Haciendo la Vista Gorda**, preparada par
 | Supabase | El proyecto que ya usás. Salud Visión guarda sus tablas en el esquema `hv`. |
 | Vercel | Tu equipo VinTracker, con un proyecto web `app-salud-vision` y dominio propios. |
 | GitHub | Tu cuenta habitual. Podés usar un repositorio propio o una carpeta dentro del repositorio común: pasos debajo. |
-| Aplicaciones | Salud Visión incluye un menú para abrir VinTracker y VinTracker Aventura. Cada una conserva sus usuarios y su sesión. |
+| Aplicaciones | Salud Visión tiene identidad propia. Cada aplicación conserva sus usuarios y su sesión. |
 
 **Compartir Supabase no unifica los inicios de sesión ni sincroniza pacientes.** No se dispone del código de VinTracker y Aventura para modificar esas funciones o sus menús. Este paquete contiene sólo Salud Visión; permite incorporarla a la infraestructura existente. Un único proyecto Vercel que sirva las tres aplicaciones requeriría integrar también sus códigos y rutas.
 
@@ -96,28 +98,20 @@ Las credenciales se cargan en Vercel; no subas `.env`, `data`, bases ni contrase
 
 Los cambios de variables requieren un nuevo despliegue. Si usás un dominio personalizado o aparece «Origen no permitido», configurá `APP_ORIGIN` con la URL exacta, por ejemplo `https://app-salud-vision.vercel.app`, sin barra final, y hacé Redeploy.
 
-## 6. Navegar entre las apps
+## 6. Identidad propia
 
-En Salud Visión aparece **Aplicaciones VinTracker**, tanto en el ingreso como en el menú lateral. Abre `/ecosistema.html`, con tres accesos:
-
-- Salud Visión: vuelve a esta misma app.
-- VinTracker: `https://vintracker.vercel.app/`.
-- VinTracker Aventura: `https://vintracker-aventura.vercel.app/`.
-
-Las dos direcciones externas provienen del trabajo previo; verificá que sean tus dominios actuales. Si cambiaron, editá sus enlaces en `public/ecosistema.html` y subí el cambio. Los enlaces abren otra pestaña sin pasar fichas ni credenciales.
-
-Para volver desde VinTracker o Aventura, usá sus pestañas. Agregar dentro de ellas un botón hacia Salud Visión requiere editar sus propios menús. El enlace a incorporar será el dominio Production de Salud Visión seguido de `/ecosistema.html`; no se modificó el código de esas dos aplicaciones en esta entrega.
+Salud Visión comparte infraestructura administrativa, pero no muestra enlaces ni menús de VinTracker. La antigua ruta `/ecosistema.html` vuelve al inicio de Salud Visión. Se conserva el mismo proyecto Supabase, esquema `hv`, equipo Vercel y variables, incluido `DATABASE_CA` si ya fue configurado.
 
 ## 7. Comprobación después de publicar
 
-1. Abrí `https://TU-DOMINIO/api/health`: debe devolver `{"ok":true,"version":"1.2.1"}`. Comprueba también conexión con la base.
+1. Abrí `https://TU-DOMINIO/api/health`: debe devolver `{"ok":true,"version":"1.3.0"}`. Comprueba también conexión con la base.
 2. Abrí `https://TU-DOMINIO/shared/domain.js`: debe mostrar JavaScript, sin 404.
 3. Ingresá, creá una escuela ficticia y cerrá la sesión. Volvé a ingresar y comprobá que siga allí.
-4. Abrí **Aplicaciones VinTracker** y verificá cada destino.
+4. Comprobá que el ingreso y el menú lateral muestran sólo las funciones de Salud Visión.
 5. Abrí VinTracker y Aventura y comprobá sus ingresos habituales. El instalador se probó con tablas ajenas simuladas; esta comprobación verifica tus aplicaciones reales.
 6. Creá las escuelas y cuentas del equipo desde Administración. Docentes: escuela asignada. Profesionales: matrícula.
 
-`CLINICAL_ENABLED=false` bloquea la carga de alumnos y registros clínicos hasta la habilitación institucional. Cuando corresponda, cambiala a `true` en este proyecto Vercel y hacé Redeploy. Para simular todo el circuito sin datos reales, instalá Node 24 y ejecutá `npm ci` y `npm run demo` en tu computadora: usa una base ficticia separada.
+La habilitación se completa en la app: **Configuración → Configurar registro → Habilitado**. Confirmá el protocolo y el procedimiento de autorizaciones. No necesita Redeploy. `CLINICAL_ENABLED` define sólo el estado inicial; después se usa la configuración guardada. Para simular todo el circuito sin datos reales, instalá Node 24 y ejecutá `npm ci` y `npm run demo` en tu computadora: usa una base ficticia separada.
 
 Tras confirmar el acceso podés retirar `BOOTSTRAP_ADMIN_NAME`, `BOOTSTRAP_ADMIN_EMAIL` y `BOOTSTRAP_ADMIN_PASSWORD` de Vercel y hacer Redeploy. El administrador existente se conserva; los reinicios no restablecen su contraseña. Mantené `DATABASE_URL` y el secreto original.
 

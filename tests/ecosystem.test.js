@@ -16,12 +16,3 @@ test('Supabase compartido: un esquema hv ajeno detiene la instalación antes de 
  }finally{await db.close();}
 });
 
-test('Menú de aplicaciones: navegación sin credenciales y recursos incluidos',()=>{
- const page=readFileSync(new URL('../public/ecosistema.html',import.meta.url),'utf8');
- const external=[...page.matchAll(/<a\b([^>]*href="https:[^"]+"[^>]*)>/g)].map(x=>x[1]);
- assert.equal(external.length,2);
- for(const attributes of external){assert.match(attributes,/rel="noopener noreferrer"/);const url=new URL(attributes.match(/href="([^"]+)"/)[1]);assert.equal(url.search,'');assert.equal(url.username,'');assert.equal(url.password,'');}
- assert.match(page,/href="\/"/);assert.match(page,/name="referrer" content="no-referrer"/);
- readFileSync(new URL('../public/ecosistema.css',import.meta.url));
- const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');assert.equal((app.match(/href="\/ecosistema.html"/g)||[]).length,2);
-});

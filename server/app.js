@@ -5,6 +5,9 @@ import {randomBytes} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {createStore} from './store.js';
 import {id,hash,passwordMatches,passwordHash} from './security.js';
+import {preferencesStore} from './preferences.js';
+import {validateUI} from '../public/shared/preferences.js';
+import {excelReport,schoolIndicators} from './excel-report.js';
 import {seedDemo} from './demo-seed.js';
 import {ROLES,PROTOCOL,classify,validateStudent,validateScreen,validateConsult,validDate,today,csvCell} from '../shared/domain.js';
 const root=resolve(fileURLToPath(new URL('..',import.meta.url)));
@@ -13,7 +16,7 @@ const fail=(code,message)=>{throw new HttpError(code,message);};
 const safeUser=u=>({id:u.id,name:u.name,email:u.email,role:u.role,schools:JSON.parse(u.schools),license:u.license,active:!!u.active});
 const permit=(u,roles)=>{if(!roles.includes(u.role))fail(403,'Tu perfil no tiene permiso para realizar esta acción.');};
 export function createApp(config={}) {
-  const demo=config.demo===true,clinical=demo||config.clinical===true;
+  const demo=config.demo===true;
   const store=config.store||createStore(config.dbPath||'./data/salud-visual.sqlite',config.key);
   if(config.store&&demo)throw Error('La demostración utiliza una base local independiente.');
   const {db,encrypt,decrypt,audit,getStudent,getEvents}=store;
@@ -24,9 +27,12 @@ export function createApp(config={}) {
   if(!mode)db.prepare('INSERT INTO meta VALUES (?,?)').run('mode',demo?'demo':'real');
   if(demo)seedDemo(store);
   }
+  const preferences=preferencesStore(store,demo||config.clinical===true);
+  const accountLock=fn=>store.startupLock?store.startupLock(fn):transaction(fn);
+  async function activeAdmin(u){if(!await db.prepare("SELECT id FROM users WHERE id=? AND active=1 AND role='admin'").get(u.id))fail(403,'Tu cuenta ya no puede administrar. Volvé a ingresar.');}
   const limiter=new Map();
   function scoped(u,p){if(!p)fail(404,'No encontramos esa ficha.');if(u.role==='teacher'&&!JSON.parse(u.schools).includes(p.schoolId))fail(403,'Esa escuela no está asignada a tu cuenta.');}
-  function ready(){if(!clinical)fail(503,'El registro está pendiente de habilitación institucional. El administrador debe completar la configuración.');}
+  async function ready(){if(!(await preferences.read()).clinical.enabled)fail(403,'La carga de alumnos está desactivada. Configuración → Habilitar registro permite activarla cuando el equipo confirme el protocolo y las autorizaciones. Si no sos administrador, pedí a la coordinación que complete ese paso.');}
   async function auditView(u,action,subject){(await audit(u.id,action,subject));}
   function studentView(u,p,events){
     const screen=events.find(e=>e.type==='screen'),consult=events.find(e=>e.type==='consult'),order=events.find(e=>e.type==='order'&&e.consultId===consult?.id),followup=events.find(e=>e.type==='followup');
@@ -63,7 +69,7 @@ export function createApp(config={}) {
     res.setHeader('Content-Security-Policy',`default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; frame-ancestors ${demo?"'self'":"'none'"}; base-uri 'self'; form-action 'self'`);
     if(config.production)res.setHeader('Strict-Transport-Security','max-age=31536000');
     res.setHeader('Cache-Control','no-store');
-    if(method==='GET'&&path==='/health'){(await db.prepare('SELECT 1').get());return json(res,{ok:true,version:'1.2.1'});}
+    if(method==='GET'&&(path==='/health'||path==='/api/health')){(await db.prepare('SELECT 1').get());return json(res,{ok:true,version:'1.3.0'});}
     if(!path.startsWith('/api/')){
       if(method!=='GET'&&method!=='HEAD')fail(405,'Método no permitido.');
       const folder=resolve(root,'public');
@@ -74,7 +80,7 @@ export function createApp(config={}) {
       const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.svg':'image/svg+xml','.webp':'image/webp','.ico':'image/x-icon','.woff2':'font/woff2'}[extname(file)]||'application/octet-stream';
       res.writeHead(200,{'Content-Type':mime});return res.end(method==='HEAD'?undefined:bytes);
     }
-    if(method==='GET'&&path==='/api/config')return json(res,{demo,clinical,protocol:PROTOCOL});
+    if(method==='GET'&&path==='/api/config'){const settings=await preferences.read();return json(res,{demo,clinical:settings.clinical.enabled,ui:settings.ui,protocol:PROTOCOL});}
     if(!['GET','HEAD'].includes(method)){
       if(req.headers.origin!==origin||req.headers['x-hv-request']!=='1')fail(403,'Origen de solicitud no permitido.');
     }
@@ -99,22 +105,51 @@ export function createApp(config={}) {
       const b=await body(req);if(typeof b.current!=='string'||!passwordMatches(b.current,u.password))fail(400,'La contraseña actual no coincide.');if(typeof b.password!=='string'||b.password.length<12||b.password.length>128)fail(400,'Usá entre 12 y 128 caracteres.');await transaction(async()=>{(await db.prepare('UPDATE users SET password=? WHERE id=?').run(passwordHash(b.password),u.id));(await db.prepare('DELETE FROM sessions WHERE userId=?').run(u.id));(await audit(u.id,'password_changed',u.id));});return json(res,(await session(res,u)));
     }
     if(method==='GET'&&path==='/api/overview'){(await auditView(u,'list_view','students'));return json(res,{students:(await list(u)),schools:(await db.prepare('SELECT * FROM schools ORDER BY name').all()).filter(s=>u.role!=='teacher'||JSON.parse(u.schools).includes(s.id))});}
+    if(method==='GET'&&path==='/api/export.xlsx'){
+      permit(u,['admin','clinician']);const settings=await preferences.read();
+      const rows=schoolIndicators(await db.prepare('SELECT * FROM schools ORDER BY name').all(),await list(u));
+      const bytes=await excelReport(rows,{name:settings.ui.brandName});await auditView(u,'aggregate_export','schools');
+      res.writeHead(200,{'Content-Type':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','Content-Disposition':'attachment; filename="indicadores-salud-visual.xlsx"'});return res.end(bytes);
+    }
+    if(path==='/api/profile'&&method==='PUT'){
+      const b=await body(req);
+      if(typeof b.name!=='string'||b.name.trim().length<3||b.name.length>100||typeof b.email!=='string'||!/^\S+@\S+\.\S+$/.test(b.email.trim())||b.email.length>150)fail(400,'Completá tu nombre y un correo válido.');
+      if(typeof b.current!=='string'||!passwordMatches(b.current,u.password))fail(400,'Ingresá tu contraseña actual para confirmar el cambio.');
+      const email=b.email.trim().toLowerCase();
+      await accountLock(async()=>{const currentUser=await db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(u.id);if(!currentUser||!passwordMatches(b.current,currentUser.password))fail(403,'Tu cuenta cambió. Volvé a ingresar.');await db.prepare('UPDATE users SET name=?,email=? WHERE id=?').run(b.name.trim(),email,u.id);await db.prepare('DELETE FROM sessions WHERE userId=?').run(u.id);await audit(u.id,'profile_updated',u.id);});
+      return json(res,await session(res,{...u,name:b.name.trim(),email}));
+    }
+    if(path==='/api/settings'&&method==='GET'){permit(u,['admin']);return json(res,await preferences.read());}
+    if(path==='/api/settings'&&method==='PUT'){
+      permit(u,['admin']);const b=await body(req);
+      const result=await accountLock(async()=>{
+        await activeAdmin(u);const previous=await preferences.read();if(b.version!==previous.version)fail(409,'Otra persona cambió la configuración. Volvé a abrirla antes de guardar.');
+        const next={...previous,version:previous.version+1};
+        if(b.section==='ui'){try{next.ui=validateUI(b.ui);}catch(e){fail(400,e.message);}}
+        else if(b.section==='clinical'){
+          if(typeof b.enabled!=='boolean')fail(400,'Elegí si querés habilitar o pausar el registro.');
+          if(b.enabled&&(b.protocolConfirmed!==true||b.consentConfirmed!==true))fail(400,'Confirmá que el equipo aprobó el protocolo y el procedimiento de autorizaciones.');
+          next.clinical={enabled:b.enabled,configured:true,updatedAt:new Date().toISOString(),authorId:u.id};
+        }else fail(400,'Sección de configuración inválida.');
+        await preferences.write(next);await audit(u.id,b.section==='ui'?'appearance_updated':'clinical_enabled_changed','settings',{enabled:next.clinical.enabled,version:next.version});return next;
+      });return json(res,result);
+    }
     if(method==='GET'&&path==='/api/export'){
       permit(u,['admin','clinician']);(await auditView(u,'aggregate_export','schools'));const students=(await list(u));const lines=[['Escuela','Registrados','Evaluados','Cumple criterio','Requiere evaluacion','Alerta comunicada','No evaluable','Anteojos pendientes','Anteojos entregados']];
       for(const school of (await db.prepare('SELECT * FROM schools ORDER BY name').all())){const a=students.filter(p=>p.schoolId===school.id);lines.push([school.name,a.length,a.filter(p=>p.status!=='pending').length,...['green','yellow','red','gray'].map(v=>a.filter(p=>p.status===v).length),a.filter(p=>p.orderStatus&&p.orderStatus!=='entregado').length,a.filter(p=>p.orderStatus==='entregado').length]);}
       res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="indicadores-salud-visual.csv"'});return res.end('\ufeff'+lines.map(r=>r.map(csvCell).join(';')).join('\r\n'));
     }
     if(method==='POST'&&path==='/api/students'){
-      ready();permit(u,['admin','teacher','clinician']);const b=await body(req),errors=validateStudent(b);if(errors.length)fail(400,errors.join(' '));scoped(u,b);if(!(await db.prepare('SELECT id FROM schools WHERE id=?').get(b.schoolId)))fail(400,'Escuela inválida.');const uid=id();const data=pickStudent(b);
+      await ready();permit(u,['admin','teacher','clinician']);const b=await body(req),errors=validateStudent(b);if(errors.length)fail(400,errors.join(' '));scoped(u,b);if(!(await db.prepare('SELECT id FROM schools WHERE id=?').get(b.schoolId)))fail(400,'Escuela inválida.');const uid=id();const data=pickStudent(b);
       await transaction(async()=>{(await db.prepare('INSERT INTO students (id,schoolId,documentHash,data) VALUES (?,?,?,?)').run(uid,b.schoolId,store.docHash(b.document),encrypt(data)));(await audit(u.id,'student_created',uid));});return json(res,{id:uid},201);
     }
     const sm=path.match(/^\/api\/students\/([\w-]+)$/),em=path.match(/^\/api\/students\/([\w-]+)\/events$/);
     if(sm){const p=(await getStudent(sm[1]));scoped(u,p);
       if(method==='GET'){const ev=(await getEvents(p.id));const v=studentView(u,p,ev);if(u.role==='workshop'&&!v.orderConsultId)fail(403,'No hay una orden disponible para el taller.');(await auditView(u,'student_view',p.id));let events=ev;if(u.role==='teacher')events=ev.filter(e=>['screen','followup'].includes(e.type));if(u.role==='workshop')events=ev.filter(e=>e.type==='order');return json(res,{student:v,events});}
-      if(method==='PUT'){ready();permit(u,['admin','teacher','clinician']);const b=await body(req),errors=validateStudent(b);if(errors.length)fail(400,errors.join(' '));scoped(u,b);if(!(await db.prepare('SELECT id FROM schools WHERE id=?').get(b.schoolId)))fail(400,'Escuela inválida.');await transaction(async()=>{const r=(await db.prepare('UPDATE students SET schoolId=?,documentHash=?,data=?,version=version+1 WHERE id=? AND version=?').run(b.schoolId,store.docHash(b.document),encrypt(pickStudent(b)),p.id,b.version));if(!r.changes)fail(409,'Otra persona modificó la ficha. Recargá antes de guardar.');(await audit(u.id,'student_updated',p.id,{before:p,after:pickStudent(b)}));});return json(res,{ok:true});}
+      if(method==='PUT'){await ready();permit(u,['admin','teacher','clinician']);const b=await body(req),errors=validateStudent(b);if(errors.length)fail(400,errors.join(' '));scoped(u,b);if(!(await db.prepare('SELECT id FROM schools WHERE id=?').get(b.schoolId)))fail(400,'Escuela inválida.');await transaction(async()=>{const r=(await db.prepare('UPDATE students SET schoolId=?,documentHash=?,data=?,version=version+1 WHERE id=? AND version=?').run(b.schoolId,store.docHash(b.document),encrypt(pickStudent(b)),p.id,b.version));if(!r.changes)fail(409,'Otra persona modificó la ficha. Recargá antes de guardar.');(await audit(u.id,'student_updated',p.id,{before:p,after:pickStudent(b)}));});return json(res,{ok:true});}
     }
     if(em&&method==='POST'){
-      ready();const p=(await getStudent(em[1]));scoped(u,p);const b=await body(req);if(!p.consent)fail(400,'La ficha no tiene autorización documentada vigente.');if(b.expectedVersion!==p.version)fail(409,'La ficha cambió. Recargá para evitar duplicar registros.');
+      await ready();const p=(await getStudent(em[1]));scoped(u,p);const b=await body(req);if(!p.consent)fail(400,'La ficha no tiene autorización documentada vigente.');if(b.expectedVersion!==p.version)fail(409,'La ficha cambió. Recargá para evitar duplicar registros.');
       let data;const type=b.type;
       if(type==='screen'){permit(u,['teacher','clinician','admin']);data=pickScreen(b.data||{});const errors=validateScreen(data);if(data.date<p.dob)errors.push('El tamizaje no puede ser anterior al nacimiento.');if(errors.length)fail(400,errors.join(' '));Object.assign(data,classify(data,p.dob));}
       else if(type==='consult'){permit(u,['clinician']);data=pickConsult(b.data||{});const errors=validateConsult(data);if(data.date<p.dob)errors.push('La consulta no puede ser anterior al nacimiento.');if(!u.license)errors.push('El perfil profesional necesita matrícula.');if(errors.length)fail(400,errors.join(' '));}
@@ -131,7 +166,7 @@ export function createApp(config={}) {
       }else fail(400,'Tipo de registro no válido.');
       const eid=id();await transaction(async()=>{const r=(await db.prepare('UPDATE students SET version=version+1 WHERE id=? AND version=?').run(p.id,b.expectedVersion));if(!r.changes)fail(409,'La ficha cambió. Recargá para continuar.');(await db.prepare('INSERT INTO events (id,studentId,type,data,authorId,createdAt) VALUES (?,?,?,?,?,?)').run(eid,p.id,type,encrypt(data),u.id,new Date().toISOString()));(await audit(u.id,type+'_created',p.id,{eventId:eid}));});return json(res,{id:eid,...data},201);
     }
-    if(method==='GET'&&path==='/api/admin'){permit(u,['admin']);return json(res,{users:(await db.prepare('SELECT * FROM users ORDER BY name').all()).map(safeUser),schools:(await db.prepare('SELECT * FROM schools ORDER BY name').all()),audit:(await db.prepare('SELECT a.id,a.action,a.subject,a.createdAt,u.name AS author FROM audit a LEFT JOIN users u ON u.id=a.authorId ORDER BY a.rowid DESC LIMIT 100').all())});}
+    if(method==='GET'&&path==='/api/admin'){permit(u,['admin']);const removed=new Set((await db.prepare("SELECT key FROM meta WHERE key LIKE 'deleted_user:%'").all()).map(r=>r.key.slice(13)));return json(res,{users:(await db.prepare('SELECT * FROM users ORDER BY name').all()).filter(u=>!removed.has(u.id)).map(safeUser),schools:(await db.prepare('SELECT * FROM schools ORDER BY name').all()),audit:(await db.prepare('SELECT a.id,a.action,a.subject,a.createdAt,u.name AS author FROM audit a LEFT JOIN users u ON u.id=a.authorId ORDER BY a.rowid DESC LIMIT 100').all())});}
     if(method==='POST'&&path==='/api/schools'){permit(u,['admin']);const b=await body(req);if(typeof b.name!=='string'||b.name.trim().length<3||b.name.length>100||typeof b.cue!=='string'||b.cue.length<3||b.cue.length>30||typeof b.location!=='string'||b.location.length<3||b.location.length>100)fail(400,'Completá nombre, CUE y localidad.');const sid=id();await transaction(async()=>{(await db.prepare('INSERT INTO schools VALUES (?,?,?,?)').run(sid,b.name.trim(),b.cue.trim(),b.location.trim()));(await audit(u.id,'school_created',sid));});return json(res,{id:sid},201);}
     if(method==='POST'&&path==='/api/users'){
       permit(u,['admin']);const b=await body(req);if(typeof b.email!=='string'||!/^\S+@\S+\.\S+$/.test(b.email)||b.email.length>150||typeof b.name!=='string'||b.name.trim().length<3||b.name.length>100||!Object.hasOwn(ROLES,b.role)||typeof b.password!=='string'||b.password.length<12||b.password.length>128||!Array.isArray(b.schools))fail(400,'Revisá nombre, correo, perfil y contraseña (12 a 128 caracteres).');
@@ -140,10 +175,29 @@ export function createApp(config={}) {
       let uid;await transaction(async()=>{uid=(await store.addUser({...b,email:b.email.trim(),name:b.name.trim(),license:b.role==='clinician'?b.license.trim():'',schools:b.role==='teacher'?b.schools:[]}));(await audit(u.id,'user_created',uid));});return json(res,{id:uid},201);
     }
     const um=path.match(/^\/api\/users\/([\w-]+)$/);
-    if(um&&method==='PATCH'){
-      permit(u,['admin']);const target=(await db.prepare('SELECT * FROM users WHERE id=?').get(um[1]));if(!target)fail(404,'Cuenta no encontrada.');const b=await body(req);if(target.id===u.id)fail(400,'Para tu propia cuenta usá Cambiar contraseña.');
-      if(typeof b.active!=='boolean'&&typeof b.password!=='string')fail(400,'Indicá una modificación válida.');if(b.password&&(b.password.length<12||b.password.length>128))fail(400,'Usá entre 12 y 128 caracteres.');
-      await transaction(async()=>{if(typeof b.active==='boolean')(await db.prepare('UPDATE users SET active=? WHERE id=?').run(b.active?1:0,target.id));if(b.password)(await db.prepare('UPDATE users SET password=? WHERE id=?').run(passwordHash(b.password),target.id));(await db.prepare('DELETE FROM sessions WHERE userId=?').run(target.id));(await audit(u.id,'user_updated',target.id,{active:b.active,passwordReset:!!b.password}));});return json(res,{ok:true});
+    if(um&&['PATCH','DELETE'].includes(method)){
+      permit(u,['admin']);const b=await body(req);
+      await accountLock(async()=>{
+        await activeAdmin(u);const target=await db.prepare('SELECT * FROM users WHERE id=?').get(um[1]);
+        if(!target||await db.prepare('SELECT key FROM meta WHERE key=?').get('deleted_user:'+um[1]))fail(404,'Cuenta no encontrada.');
+        if(target.id===u.id)fail(400,'Tu cuenta se edita desde Mi cuenta. No podés eliminar o desactivar tu propio acceso.');
+        if((method==='DELETE'||b.active===false)&&target.role==='admin'&&target.active){
+          const count=await db.prepare("SELECT COUNT(*) n FROM users WHERE role='admin' AND active=1").get();if(Number(count.n)<=1)fail(400,'Debe quedar al menos un administrador activo.');
+        }
+        if(method==='DELETE'){
+          if(b.confirm!==target.email)fail(400,'Escribí el correo de la cuenta para confirmar la eliminación.');
+          await db.prepare('UPDATE users SET active=0 WHERE id=?').run(target.id);
+          await db.prepare('INSERT INTO meta (key,value) VALUES (?,?)').run('deleted_user:'+target.id,new Date().toISOString());
+          await audit(u.id,'user_deleted',target.id);
+        }else{
+          if(typeof b.active!=='boolean'&&typeof b.password!=='string')fail(400,'Indicá una modificación válida.');
+          if(b.password&&(b.password.length<12||b.password.length>128))fail(400,'Usá entre 12 y 128 caracteres.');
+          if(typeof b.active==='boolean')await db.prepare('UPDATE users SET active=? WHERE id=?').run(b.active?1:0,target.id);
+          if(b.password)await db.prepare('UPDATE users SET password=? WHERE id=?').run(passwordHash(b.password),target.id);
+          await audit(u.id,'user_updated',target.id,{active:b.active,passwordReset:!!b.password});
+        }
+        await db.prepare('DELETE FROM sessions WHERE userId=?').run(target.id);
+      });return json(res,{ok:true});
     }
     fail(404,'La acción solicitada no existe.');
   }

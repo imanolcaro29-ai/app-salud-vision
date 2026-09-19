@@ -1,22 +1,26 @@
 # Haciendo la Vista Gorda
 
-**Salud visual escolar · versión 1.2.1**
+**Salud visual escolar · versión 1.3.0**
 
 Aplicación completa para registrar alumnos, guiar el registro de tamizajes con cartilla estandarizada, documentar consultas profesionales, gestionar anteojos y acompañar el seguimiento.
 
-Paleta crema, durazno y celeste basada en la referencia del equipo. Incluye a **Lupi**, una mascota que ofrece ayuda contextual y una actividad de familiarización con direcciones.
+Paleta crema, durazno y celeste basada en la referencia del equipo. Incluye a **Lupi**, una mascota que guía un tutorial por perfil, explica el uso de la app y propone una práctica interactiva.
 
-![Panel de la aplicación con datos ficticios](docs/Vista_previa_salud_visual.jpg)
+![Configuración de la versión 1.3 con datos ficticios](docs/Configuracion_1.3.png)
 
-## App Salud Visión dentro del ecosistema VinTracker
+## Infraestructura compartida, aplicación independiente
 
-Usa el mismo proyecto Supabase que VinTracker y VinTracker Aventura, con sus registros en el esquema `hv`. Se publica como `app-salud-vision` dentro del mismo equipo Vercel. Incluye una página **Aplicaciones VinTracker** con enlaces a las otras dos apps. Los accesos y registros de salud siguen siendo propios; no se ha implementado inicio de sesión único ni intercambio de fichas.
+Usa el mismo proyecto Supabase que VinTracker y VinTracker Aventura, con sus registros en el esquema `hv`. Se publica como `app-salud-vision` dentro del mismo equipo Vercel. Salud Visión tiene identidad y navegación propias, sin enlaces a esas aplicaciones. Los accesos y registros de salud siguen siendo propios; no se ha implementado inicio de sesión único ni intercambio de fichas.
+
+## Si ya tenés la app publicada
+
+Seguí [ACTUALIZAR_1.3.md](ACTUALIZAR_1.3.md), o abrí **LEEME_ACTUALIZACION.html** después de extraer el ZIP. Conservá las variables y la base que ya funcionan.
 
 ## Publicar con Vercel y Supabase
 
 Seguí [EMPEZAR_AQUI.md](EMPEZAR_AQUI.md). Incluye `vercel.json`, la función `api/index.js`, el esquema PostgreSQL de Supabase y **ABRIR_CONFIGURADOR.html**, un asistente local para preparar las variables sin escribir código ni compartir contraseñas.
 
-La versión 1.2.1 conserva la demostración local con SQLite y utiliza PostgreSQL para el despliegue en Vercel. Supabase almacena los registros y Vercel ejecuta el servidor. No requiere Render para esta modalidad.
+La versión 1.3.0 conserva la demostración local con SQLite y utiliza PostgreSQL para el despliegue en Vercel. Supabase almacena los registros y Vercel ejecuta el servidor. No requiere Render para esta modalidad.
 
 ## Probar la app en tu computadora
 
@@ -38,6 +42,12 @@ El modo demo conserva los ensayos en una base separada dentro de `data/`. No ing
 
 ## Qué incluye
 
+- Configuración de marca, paleta, portada de ingreso, menú, títulos y descripciones de las secciones.
+- Edición del nombre visible, correo y contraseña desde Mi cuenta.
+- Habilitación o pausa de la carga desde Configuración, con explicación y auditoría.
+- Eliminación de cuentas administrativas con revocación de sesiones y conservación de autoría.
+- Tutorial de Lupi y siete guías ampliadas con fuentes.
+- Informe Excel .xlsx con resumen, detalle por escuela, fórmulas y guía de lectura.
 - Panel de indicadores calculados desde los registros de la base.
 - Alta y edición de datos escolares, búsqueda por nombre/DNI y filtros.
 - Autorización documentada con fecha y referencia institucional.
@@ -68,7 +78,7 @@ npm start
 
 El asistente crea la clave de cifrado y la primera cuenta de administración; muestra la contraseña inicial una sola vez. No hay una contraseña administrativa fija en el código de producción.
 
-Antes del registro real, la institución debe aprobar el protocolo clínico, el tratamiento de datos y el alojamiento. La opción `CLINICAL_ENABLED=false` mantiene bloqueada la carga de alumnos y registros asistenciales hasta su habilitación. La app no diagnostica a partir del tamizaje ni reemplaza una historia clínica institucional certificada.
+Antes del registro real, la institución debe aprobar el protocolo clínico, el tratamiento de datos y el alojamiento. La habilitación se controla desde **Configuración → Configurar registro**. `CLINICAL_ENABLED` sólo aporta el estado inicial cuando todavía no hay una configuración guardada; después prevalece el estado guardado en la base. La app no diagnostica a partir del tamizaje ni reemplaza una historia clínica institucional certificada.
 
 ## Comprobar el proyecto
 

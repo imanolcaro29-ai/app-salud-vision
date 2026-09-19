@@ -1,4 +1,4 @@
-# Operación en Vercel + Supabase (1.2.0)
+# Operación en Vercel + Supabase (1.3.0)
 
 Conservá `DATABASE_URL` y `DATA_SECRET` como secretos en Vercel. Restringí el acceso al proyecto de Supabase a los responsables designados. Para ver las tablas en Studio, seleccioná el esquema `hv`; su contenido personal y clínico está cifrado por la app.
 
@@ -6,7 +6,7 @@ Conservá `DATABASE_URL` y `DATA_SECRET` como secretos en Vercel. Restringí el 
 
 Acordá una política de copias con el operador de la institución. Usá las herramientas de respaldo de Supabase o `pg_dump` para el esquema `hv`, según el plan y los permisos disponibles. La conexión para dump/restauración debe ser la que Supabase indica para sesiones o conexión directa; no se debe usar el pooler de transacciones para esa tarea. Conservá el secreto de cifrado por separado y probá la restauración en un proyecto independiente.
 
-`npm run backup` corresponde a SQLite y rechaza la modalidad PostgreSQL. El CSV de indicadores de la app no sustituye una copia de seguridad de las historias.
+`npm run backup` corresponde a SQLite y rechaza la modalidad PostgreSQL. El Excel de indicadores de la app no sustituye una copia de seguridad de las historias.
 
 No se configuró una copia programada ni se realizó una restauración remota de Supabase. La verificación incluida comprueba persistencia y reconexión sobre PostgreSQL de prueba. Para una base real, el responsable debe cerrar el ensayo de respaldo y recuperación en su alojamiento.
 
@@ -63,10 +63,16 @@ La referencia de autorización se actualiza desde Editar datos escolares. Si se 
 | Ficha cambió / 409 | Recargar, revisar el último asiento y repetir sólo si falta el registro. |
 | Sin conexión | Conservar la pestaña y reintentar cuando vuelva la red. |
 | Origen no permitido | Verificar que APP_ORIGIN coincida exactamente con el dominio HTTPS utilizado. |
-| Registro pendiente de habilitación | Completar acuerdos institucionales y configuración. |
+| Registro pendiente de habilitación | Configuración → Configurar registro: confirmar protocolo y procedimiento de autorizaciones. |
 | Puerto en uso | Cerrar otra instancia o elegir un puerto libre. |
 | Edad fuera del alcance | Organizar evaluación sanitaria con otro protocolo; no forzar el resultado. |
 
 ## Criterios pendientes antes del uso asistencial
 
 Asignar responsables; aprobar protocolo y cartillas; definir circuito de alarmas y plazos; capacitar; revisar confidencialidad y datos de menores; verificar autorizaciones; configurar HTTPS, disco, cuentas y copias; realizar piloto con comparación profesional. La revisión de código y los simulacros demuestran comportamiento de software, no exactitud diagnóstica del tamizaje ni cumplimiento normativo completo.
+
+## Configuración y cuentas en 1.3
+
+La apariencia y el estado de habilitación se guardan cifrados en `meta`, con control de revisión para evitar sobrescribir cambios concurrentes. `CLINICAL_ENABLED` es sólo el valor inicial: un estado ya guardado prevalece sobre la variable. Pausar el registro impide nuevas fichas y actividades, pero permite consultar las existentes.
+
+Mi cuenta permite cambiar nombre y correo con contraseña actual. Invalida las demás sesiones. El administrador puede eliminar otras cuentas, incluso administrativas; se retiran del listado y se revocan sus sesiones, conservando la identidad vinculada al historial. No se permite autoeliminación ni quedarse sin administrador activo.

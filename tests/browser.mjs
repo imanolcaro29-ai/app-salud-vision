@@ -11,7 +11,7 @@ await new Promise(r=>app.server.listen(0,'127.0.0.1',r));
 const base='http://127.0.0.1:'+app.server.address().port;
 let browser;
 try{
-  browser=await chromium.launch({headless:true});
+  browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH,args:JSON.parse(process.env.CHROMIUM_ARGS||'[]')}:{})});
   const page=await browser.newPage({viewport:{width:1366,height:900}});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(base);
@@ -25,7 +25,7 @@ try{
   await page.getByLabel('Adulto responsable',{exact:true}).fill('Adulto de prueba');
   await page.getByLabel('Contacto del adulto',{exact:true}).fill('Contacto ficticio');
   await page.getByRole('checkbox',{name:'La institución tiene autorización documentada para esta actividad y registro.',exact:true}).check();
-  await page.getByLabel('Referencia del documento resguardado',{exact:true}).fill('AUT-PRUEBA');
+  await page.getByLabel('Dónde se guarda la autorización',{exact:true}).fill('AUT-PRUEBA');
   await page.getByRole('button',{name:'Guardar alumno',exact:true}).click();
   await page.getByRole('dialog').waitFor({state:'hidden'});
   await page.getByRole('link',{name:'Alumnos',exact:true}).click();
